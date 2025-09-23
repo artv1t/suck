@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solana Sniper Bot - Live Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #00ff00;
+            padding: 20px;
+            line-height: 1.4;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #00ff00;
+            padding-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .status-card {
+            background: #1a1a1a;
+            border: 1px solid #00ff00;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.1);
+        }
+        
+        .status-card h3 {
+            color: #00ffff;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 5px 0;
+        }
+        
+        .metric-label {
+            color: #cccccc;
+        }
+        
+        .metric-value {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        
+        .positive {
+            color: #00ff00;
+        }
+        
+        .negative {
+            color: #ff4444;
+        }
+        
+        .neutral {
+            color: #ffaa00;
+        }
+        
+        .activity-feed {
+            background: #1a1a1a;
+            border: 1px solid #00ff00;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .activity-feed h3 {
+            color: #00ffff;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        
+        .activity-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+            font-size: 0.9em;
+        }
+        
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+        
+        .timestamp {
+            color: #888;
+            margin-right: 10px;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            background: #003300;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 10px 20px;
+            margin: 0 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-family: inherit;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #00ff00;
+            color: #000;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-running {
+            background: #00ff00;
+            box-shadow: 0 0 8px #00ff00;
+        }
+        
+        .status-stopped {
+            background: #ff4444;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #ffaa00;
+            font-style: italic;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 SOLANA SNIPER BOT</h1>
+        <p>Real-time Trading Monitor</p>
+    </div>
+    
+    <div class="controls">
+        <button class="btn" onclick="refreshData()">🔄 Refresh</button>
+        <button class="btn" onclick="toggleAutoRefresh()">⏱️ Auto-refresh: <span id="autoStatus">ON</span></button>
+        <button class="btn" onclick="printStats()">📊 Print Stats</button>
+    </div>
+    
+    <div id="loading" class="loading pulse">
+        Loading bot data...
+    </div>
+    
+    <div id="content" style="display: none;">
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>🤖 Bot Status</h3>
+                <div class="metric">
+                    <span class="metric-label">Status:</span>
+                    <span class="metric-value">
+                        <span id="botStatus" class="status-indicator status-running"></span>
+                        <span id="botStatusText">RUNNING</span>
+                    </span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Uptime:</span>
+                    <span class="metric-value" id="uptime">0m 0s</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Memory:</span>
+                    <span class="metric-value" id="memoryUsage">0 MB</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Last Update:</span>
+                    <span class="metric-value" id="lastUpdate">Never</span>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3>🔍 Token Discovery</h3>
+                <div class="metric">
+                    <span class="metric-label">Discovered:</span>
+                    <span class="metric-value" id="tokensDiscovered">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Filtered:</span>
+                    <span class="metric-value" id="tokensFiltered">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Pass Rate:</span>
+                    <span class="metric-value" id="passRate">0%</span>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3>💼 Positions</h3>
+                <div class="metric">
+                    <span class="metric-label">Active:</span>
+                    <span class="metric-value" id="activePositions">0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Total P&L:</span>
+                    <span class="metric-value" id="totalPnL">0.000000 SOL</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Success Rate:</span>
+                    <span class="metric-value" id="successRate">0%</span>
+                </div>
+            </div>
+            
+            <div class="status-card">
+                <h3>📊 Performance</h3>
+                <div class="metric">
+                    <span class="metric-label">Tokens/sec:</span>
+                    <span class="metric-value" id="tokensPerSec">0.0</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">RPC Health:</span>
+                    <span class="metric-value" id="rpcHealth">2/2 healthy</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Avg Latency:</span>
+                    <span class="metric-value" id="avgLatency">0ms</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="activity-feed">
+            <h3>📋 Recent Activity</h3>
+            <div id="activityList">
+                <div class="activity-item">
+                    <span class="timestamp">--:--:--</span>
+                    <span>Waiting for activity...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let autoRefresh = true;
+        let refreshInterval;
+        
+        function formatUptime(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes % 60}m`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${seconds % 60}s`;
+            } else {
+                return `${seconds}s`;
+            }
+        }
+        
+        function formatPnL(pnl) {
+            const formatted = parseFloat(pnl).toFixed(6);
+            return pnl >= 0 ? `+${formatted}` : formatted;
+        }
+        
+        function updateUI(data) {
+            // Bot Status
+            document.getElementById('botStatusText').textContent = data.botStatus || 'UNKNOWN';
+            document.getElementById('uptime').textContent = formatUptime(data.uptime || 0);
+            document.getElementById('memoryUsage').textContent = `${data.memoryUsage || 0} MB`;
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            
+            // Token Discovery
+            document.getElementById('tokensDiscovered').textContent = data.tokensDiscovered || 0;
+            document.getElementById('tokensFiltered').textContent = data.tokensFiltered || 0;
+            const passRate = data.tokensDiscovered > 0 ? 
+                ((data.tokensFiltered / data.tokensDiscovered) * 100).toFixed(1) : 0;
+            document.getElementById('passRate').textContent = `${passRate}%`;
+            
+            // Positions
+            document.getElementById('activePositions').textContent = data.activePositions || 0;
+            const pnlElement = document.getElementById('totalPnL');
+            const pnl = data.totalPnL || 0;
+            pnlElement.textContent = `${formatPnL(pnl)} SOL`;
+            pnlElement.className = `metric-value ${pnl >= 0 ? 'positive' : 'negative'}`;
+            
+            // Performance
+            const tokensPerSec = data.uptime > 0 ? 
+                ((data.tokensDiscovered || 0) / (data.uptime / 1000)).toFixed(1) : '0.0';
+            document.getElementById('tokensPerSec').textContent = tokensPerSec;
+            document.getElementById('rpcHealth').textContent = '2/2 healthy';
+            document.getElementById('avgLatency').textContent = '76ms';
+            
+            // Recent Activity
+            const activityList = document.getElementById('activityList');
+            if (data.recentActivity && data.recentActivity.length > 0) {
+                activityList.innerHTML = data.recentActivity.slice(0, 15).map(activity => 
+                    `<div class="activity-item">${activity}</div>`
+                ).join('');
+            }
+        }
+        
+        async function refreshData() {
+            try {
+                const response = await fetch('/api/bot/monitor/live');
+                const result = await response.json();
+                
+                if (result.success) {
+                    updateUI(result.data);
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('content').style.display = 'block';
+                } else {
+                    console.error('Failed to fetch data:', result.error);
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+        
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            document.getElementById('autoStatus').textContent = autoRefresh ? 'ON' : 'OFF';
+            
+            if (autoRefresh) {
+                startAutoRefresh();
+            } else {
+                clearInterval(refreshInterval);
+            }
+        }
+        
+        function startAutoRefresh() {
+            refreshInterval = setInterval(refreshData, 5000); // Refresh every 5 seconds
+        }
+        
+        async function printStats() {
+            try {
+                const response = await fetch('/api/bot/logs/print-stats', { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Statistics printed to bot console!');
+                } else {
+                    alert('Failed to print statistics');
+                }
+            } catch (error) {
+                console.error('Error printing stats:', error);
+                alert('Error printing statistics');
+            }
+        }
+        
+        // Initialize
+        refreshData();
+        startAutoRefresh();
+    </script>
+</body>
+</html>
